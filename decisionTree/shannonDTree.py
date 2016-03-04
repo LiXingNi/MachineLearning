@@ -1,5 +1,7 @@
 from math import log
-import helpFunc as hF
+
+from decisionTree import helpFunc as hF
+
 
 def calShannonEntropy(dataSet):
     setNum = len(dataSet)

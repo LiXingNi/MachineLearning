@@ -1,7 +1,8 @@
 from drawTree import *
-from shannonDTree import chooseBestFeatureShannon
 from giniTree import chooseBestFeatureGINI
-from helpFunc import *
+from shannonDTree import chooseBestFeatureShannon
+
+from decisionTree.helpFunc import *
 
 
 class TreeNode:
@@ -157,6 +158,7 @@ class Tree:
             # 根据当前节点的路径字典集筛选出合适的数据集
             path_dic = self.findPath(curr_node)
             curr_data_set = self.data_train[:]
+
             for key in path_dic:
                 index = self.feature_attr.index(key)
                 curr_data_set = [line for line in curr_data_set if line[index] == path_dic[key]]

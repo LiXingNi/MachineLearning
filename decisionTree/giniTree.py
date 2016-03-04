@@ -1,4 +1,4 @@
-from helpFunc import *
+from decisionTree.helpFunc import *
 
 
 def giniIndex(data_set):
