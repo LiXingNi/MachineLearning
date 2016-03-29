@@ -1,4 +1,5 @@
 from math import e
+import random
 
 def sigmoid(x):
     return 1.0 / (1 + e**(-x))
@@ -6,12 +7,12 @@ def sigmoid(x):
 class Neuron:
     def __init__(self,func):
         self.weight = []                #当前神经元各个输入分支的权重
-        self.threshold = 0.0            #当前神经元的权重
+        self.threshold = random.random()#当前神经元的权重
         self.activeFunc = func          #当前神经元的激活函数
 
-    def initThreshold(self,input_num,weight):
+    def initThreshold(self,input_num):
         for i in range(input_num):
-            self.weight.append(weight)
+            self.weight.append(random.random())
 
 
     def calOutput(self,input_vec):      # 输入向量
@@ -24,22 +25,22 @@ class Neuron:
 
 
 class NeuronNetwork:
-    def __init__(self,ip_layer_num,hd_layer_num,op_layer_num,func,weight_init = 1.0,l_rate = 0.5):
+    def __init__(self,ip_layer_num,hd_layer_num,op_layer_num,func,l_rate = 0.2):
         self.l_rate = l_rate
-        self.weight_init = weight_init
         self.hd_layer = []
         self.op_layer = []
 
         # init hidden layer
         for i in range(hd_layer_num):
             neuron = Neuron(func)
-            neuron.initThreshold(ip_layer_num,self.weight_init)
+            #neuron.initThreshold(ip_layer_num,self.weight_init)
+            neuron.initThreshold(ip_layer_num)
             self.hd_layer.append(neuron)
 
         #init output layer
         for i in range(op_layer_num):
             neuron = Neuron(func)
-            neuron.initThreshold(hd_layer_num,self.weight_init)
+            neuron.initThreshold(hd_layer_num)
             self.op_layer.append(neuron)
 
 
@@ -98,6 +99,7 @@ class NeuronNetwork:
             data_vec = train_vec[j]
             data_res = train_res[j]
             y = self.calOutput(data_vec)
+            print(data_vec, end='\t')
             print(y,'\t',data_res)
 
 
@@ -199,7 +201,6 @@ class NeuronNetwork:
 
 
 if __name__ == "__main__":
-    neuronN = NeuronNetwork(2,10,1,sigmoid)
+    neuronN = NeuronNetwork(2,3,1,sigmoid)
     neuronN.train('train.txt',10000)
-    i = 10
 
