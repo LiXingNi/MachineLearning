@@ -200,7 +200,7 @@ class NeuronNetwork:
         return hd_threshold_m,hd_weight_m,op_threshold_m,op_weight_m
 
 
-if __name__ == "__main__":
+if __name__ == "main":
     neuronN = NeuronNetwork(2,3,1,sigmoid)
     neuronN.train('train.txt',10000)
 
