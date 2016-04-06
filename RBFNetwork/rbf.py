@@ -25,52 +25,72 @@ class ONode:
     def calcOutput(self,input):
         return reduce(lambda x,y: x + y,map(lambda x,y : x * y,input,self._weight))
 
+def loadFile(file_name):
+    f_obj = open(file_name)
+    line = f_obj.readline()  #读出第一行标识行
+
+    i_dim,o_dim= line.strip().split('\t')
+    i_dim = int(i_dim)
+    o_dim = int(o_dim)
+
+    train_data = []
+    train_label = []
+
+    data = [int(line.strip().split('\t')) for line in f_obj]
+
+    for line in f_obj:
+        lis = [int(s) for s in line.strip().split('\t')]
+        train_data.append(lis[0:i_dim])
+        train_label.append(lis[i_dim:])
+    return train_data,train_label
+
 class RBF:
-    def __init__(self,h_num,file_name,eta):
+    def __init__(self,h_num,train_data,train_label,o_num,eta,center_set = None):
         self._eta = eta
         self._h_num = h_num
-        self._o_dim= 0
-        self._i_dim= 0
-        self._train_data = []
+        self._center_set = center_set
+        self._o_dim= o_num
+        self._i_dim= len(train_data[0])
+        self._train_data = train_data[:]
+
+        #根据标签的值和输出的维度构造输出集合
         self._train_result = []
+        for label in train_label:
+            l = [0] * o_num
+            l[label] = 1
+            self._train_result.append(l)
+
         self._h_node = []
         self._o_node = []
-        self.loadFile(file_name)  #读取输入输出序列
         self._initHiddenNode()     #初始化隐层顶点
         self._initOutputNode()       #初始化输出层顶点
 
 
-    def loadFile(self,file_name):
-        f_obj = open(file_name)
-        line = f_obj.readline()  #读出第一行标识行
-
-        self._i_dim,self._o_dim= line.strip().split('\t')
-        self._i_dim = int(self._i_dim)
-        self._o_dim = int(self._o_dim)
-
-        for line in f_obj:
-            lis = [int(s) for s in line.strip().split('\t')]
-            self._train_data.append(lis[0:self._i_dim])
-            self._train_result.append(lis[self._i_dim:])
-
-    def _initHiddenNode(self):
+    def _orderChooseCenterPoint(self):
         #随机选样本中的h_num作为中心点
         center_set = []
         center_range = (0,len(self._train_data) - 1)
         for i in range(self._h_num):
             center_set.append(self._train_data[i])
+        return center_set
+
+    def _initHiddenNode(self):
+        center_set = self._center_set
+        if center_set == None:
+            center_set = self._orderChooseCenterPoint()
+        #for c in center_set:
+        #    print(c)
+
         #求点之间的最大距离
         center_pair = [[x,y] for x in center_set for y in center_set]
         max_distance = np.linalg.norm(max(center_pair,key = lambda k: np.linalg.norm(np.array(k[0])- np.array(k[1]))))
 
         #初始化隐层顶点
         delta = max_distance / np.sqrt(2 * self._h_num)
-        for i in range(self._h_num):
-            self._h_node.append(HNode(center_set[i],delta))
+        self._h_node = [HNode(center_set[i],delta) for i in range(self._h_num)]
 
     def _initOutputNode(self):
-        for i in range(self._o_dim):
-            self._o_node.append(ONode(self._h_num))
+        self._o_node = [ONode(self._h_num) for i in range(self._o_dim)]
 
 
     #根据输入返回训练系统的输出
@@ -89,11 +109,15 @@ class RBF:
 
     def train(self,times):
         for i in  range(times):
+            #if i % 10 == 0:
+            print("train:%d"%(i,))
             self._train()
 
     #根据所有输入文件进行训练
     def _train(self):
         for index in range(len(self._train_data)):
+            #if index % 100 == 0:
+            #    print("\t%d"%(index))
             x = self._train_data[index]
             h_output,y_predict = self.rbfCount(x)
             y_actual = self._train_result[index]
@@ -140,12 +164,13 @@ class RBF:
 
 
 if __name__ == "__main__":
-    rbf = RBF(4,"train.txt",0.2)
-    rbf.train(1000)
-    test = [[0,1],[1,0],[0,0],[1,1]]
-    for t in test:
-        n,y = rbf.rbfCount(t)
-        print(t," ",y)
+    pass
+    #rbf = RBF(4,"train.txt",0.2,None)
+    #rbf.train(1000)
+    #test = [[0,1],[1,0],[0,0],[1,1]]
+    #for t in test:
+    #    n,y = rbf.rbfCount(t)
+    #    print(t," ",y)
 
 
 
