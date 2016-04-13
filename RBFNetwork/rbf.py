@@ -36,12 +36,10 @@ def loadFile(file_name):
     train_data = []
     train_label = []
 
-    data = [int(line.strip().split('\t')) for line in f_obj]
-
     for line in f_obj:
         lis = [int(s) for s in line.strip().split('\t')]
         train_data.append(lis[0:i_dim])
-        train_label.append(lis[i_dim:])
+        train_label.append(lis[i_dim])
     return train_data,train_label
 
 class RBF:
@@ -94,24 +92,47 @@ class RBF:
 
 
     #根据输入返回训练系统的输出
-    def rbfCount(self,input):
-        h_output = []
-        for i,h_node in enumerate(self._h_node):
-            #计算每个隐层顶点的输出
-            h_node = self._h_node[i]
-            h_output.append(RBFunction(input,h_node._center,h_node._delta))
+    def predict(self,input):
+        return self.rbfCount(self.hiddenOutput(input))
 
-        #根据每个输出顶点的权重计算每个输出顶点的值
-        y_output = []
-        for i, o_node in enumerate(self._o_node):
-            y_output.append(o_node.calcOutput(h_output))
-        return h_output,y_output
+    #输入隐层输出，返回神经网络预测值
+    def rbfCount(self,h_output):
+        y_output = [o_node.calcOutput(h_output) for o_node in self._o_node]
+        return y_output
+
+    #输入训练数据，输出隐层输出
+    def hiddenOutput(self,input):
+        h_output = [RBFunction(input,h_node._center,h_node._delta) for h_node in self._h_node]
+        return h_output
+
 
     def train(self,times):
         for i in  range(times):
             #if i % 10 == 0:
             print("train:%d"%(i,))
-            self._train()
+            self._trains()
+
+    #新的矩阵运算
+    def _trains(self):
+        x_matrix = np.array(self._train_data)
+        y_real_matrix = np.array(self._train_result)
+        green_matrix = [self.hiddenOutput(input) for input in self._train_data]
+        y_predict_matrix = np.array([self.rbfCount(h_output) for h_output in green_matrix])
+        green_matrix = np.array(green_matrix)
+
+        c_matrix = np.array([h_node._center for h_node in self._h_node])
+        w_matrix = np.array([o_node._weight for o_node in self._o_node])
+
+        x_c_matrix = x_matrix - c_matrix
+        x_c_2_matrix = [np.linalg.norm(dif)**2 for dif in x_c_matrix]
+        e_y = y_predict_matrix - y_real_matrix
+
+        for j in range(self._h_num):
+            w_y_sum = [sum(np.array(w_matrix[j] * np.array(y))) for y in e_y]
+            delta_c_j = green_matrix[j] * x_c_matrix
+            delta_c_j = np.dot(delta_c_j,w_y_sum)
+
+
 
     #根据所有输入文件进行训练
     def _train(self):
@@ -164,13 +185,13 @@ class RBF:
 
 
 if __name__ == "__main__":
-    pass
-    #rbf = RBF(4,"train.txt",0.2,None)
-    #rbf.train(1000)
-    #test = [[0,1],[1,0],[0,0],[1,1]]
-    #for t in test:
-    #    n,y = rbf.rbfCount(t)
-    #    print(t," ",y)
+    train_data,train_label = loadFile("train.txt")
+    rbf = RBF(4,train_data,train_label,2,0.2,None)
+    rbf.train(1000)
+    test = [[0,1],[1,0],[0,0],[1,1]]
+    for t in test:
+        n,y = rbf.rbfCount(t)
+        print(t," ",y)
 
 
 
