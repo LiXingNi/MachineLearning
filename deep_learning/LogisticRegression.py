@@ -1,3 +1,4 @@
+# _*_ coding:utf-8 _*_
 import theano
 import theano.tensor as T
 from theano import function
