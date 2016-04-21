@@ -42,7 +42,7 @@ class Regression(object):
 
 
 class HiddenLayer(object):
-    def __init__(self, rng, input, n_in, n_out, activation = T.tanh):
+    def __init__(self, rng, input, n_in, n_out, activation = T.nnet.relu):
         self.input = input
         W = np.asarray(
             rng.uniform(
@@ -101,7 +101,7 @@ def trainMLP(learning_rate = 0.01, L1_reg = 0.0, L2_reg = 0.0001,
     rng = np.random.RandomState(1234)
 
     x = T.matrix('x')
-    y = T.ivector('x')
+    y = T.ivector('y')
     index = T.iscalar('index')
 
     #实例化类，类中仍然是符号表示式子
