@@ -57,7 +57,7 @@ def trainLeNet(learning_rate = 0.1,
                 n_epoch = 200,
                 dataset = "mnist.pkl.gz",
                 nkerns = [20, 50],
-                batch_size = 500):
+                batch_size = 500, test_image = None):
 
     data_sets = loadData(dataset)
     train_set_x, train_set_y = data_sets[0]
@@ -174,6 +174,8 @@ def trainLeNet(learning_rate = 0.1,
                     if(valid_score <= best_valid_score * improvement_threshold):
                         patience = max(patience,iter * patience_increase)
 
+                    best_valid_score = valid_score
+
                     #在检测性能提升的情况下测试 测试数据集
                     test_result = [test_model(index) for index in range(n_test_batches)]
                     test_score =  np.mean(test_result)
@@ -204,10 +206,20 @@ def trainLeNet(learning_rate = 0.1,
         "count epoch : %i s,  with %.2f epoches/sec" %
         (epoch, (1. * epoch) / (end_time - start_time))
     )
+    return mlp_layer
 
 
-if __name__ == "__main__":
-    trainLeNet()
+def leNetPrediction(image_set):
+    classifier = trainLeNet()
+
+    predict_model = theano.function([classifier.input],classifier.pred)
+
+    for image in image_set:
+        print(predict_model(image))
+
+
+#if __name__ == "__main__":
+#    trainLeNet()
 
 
 
