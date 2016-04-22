@@ -190,6 +190,12 @@ def trainLeNet(learning_rate = 0.1,
                         )
                     )
 
+                    if test_image is not None:
+                        test_result = []
+                        for image in test_image:
+                            test_result.append(mlp_layer.prediction_func(image))
+                        print ("one test result is : ",test_result)
+
             if patience <= iter:
                 loop_done = True
                 break

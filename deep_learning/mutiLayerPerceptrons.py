@@ -90,6 +90,9 @@ class MLP(object):
 
         self.params = self.hidden_layer.params + self.regression_layer.params
 
+        self.prediction_func = function([self.input],self.pred)
+
+
 def trainMLP(learning_rate = 0.01, L1_reg = 0.0, L2_reg = 0.0001,
              n_epoch = 1000, dataset = "mnist.pkl.gz", batch_size = 20,
              n_hidden = 500):

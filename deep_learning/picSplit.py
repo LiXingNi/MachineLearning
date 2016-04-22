@@ -84,6 +84,6 @@ if __name__ == "__main__":
 
     print ("split image ops")
 
-    leNetPrediction(test_ims)
+    trainLeNet(test_image = test_ims)
 
 
