@@ -31,18 +31,6 @@ class leNet(object):
         mlp_layer_input = layer1.output.flatten(2)
         mlp_layer = MLP(rng, mlp_layer_input, nkerns[1] * 4 * 4, 500, 10)
 
-        #layer_final_params = params[:4]
-        #layer_1_params = params[4:6]
-        #layer_0_params = params[6:8]
-        #layer0.W.set_value(layer_0_params[0].get_value(), borrow= True)
-        #layer0.b.set_value(layer_0_params[1].get_value(), borrow= True)
-        #layer1.W.set_value(layer_1_params[0].get_value(), borrow= True)
-        #layer1.b.set_value(layer_1_params[1].get_value(), borrow= True)
-        #mlp_layer.hidden_layer.W.set_value(layer_final_params[0].get_value(), borrow= True)
-        #mlp_layer.hidden_layer.b.set_value(layer_final_params[1].get_value(), borrow= True)
-        #mlp_layer.regression_layer.W.set_value(layer_final_params[2].get_value(), borrow= True)
-        #mlp_layer.regression_layer.b.set_value(layer_final_params[3].get_value(), borrow= True)
-
 
         layer0.W.set_value(params[0].get_value(),borrow = True)
         layer0.b.set_value(params[1].get_value(),borrow = True)
