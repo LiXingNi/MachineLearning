@@ -8,6 +8,7 @@ from theano.tensor.nnet import conv2d
 from theano.tensor.signal import downsample
 import numpy as np
 import timeit
+import json
 
 
 class LeNetPoolLayer(object):
@@ -47,18 +48,15 @@ class LeNetPoolLayer(object):
 
         pool_out = downsample.max_pool_2d(input = convo_out , ds = pool_size, ignore_border = True)
 
-        self.output = T.nnet.relu(pool_out + self.b.dimshuffle('x', 0, 'x', 'x'))
+        self.output = T.tanh(pool_out + self.b.dimshuffle('x', 0, 'x', 'x'))
         self.param = [self.W, self.b]
-
-
 
 
 def trainLeNet(learning_rate = 0.1,
                 n_epoch = 200,
                 dataset = "mnist.pkl.gz",
                 nkerns = [20, 50],
-                batch_size = 500, test_image = None):
-
+                batch_size = 500):
     data_sets = loadData(dataset)
     train_set_x, train_set_y = data_sets[0]
     valid_set_x, valid_set_y = data_sets[1]
@@ -96,10 +94,19 @@ def trainLeNet(learning_rate = 0.1,
     cost = mlp_layer.neg_log_likelihood(y)
     errors = mlp_layer.errors(y)
 
-    params = layer0.param + layer1.param + mlp_layer.params
+    params = layer0.param + layer1.param + mlp_layer.param
+    #params = [layer0.param, layer1.param, mlp_layer.param]
 
     gparams = [T.grad(cost,param) for param in params]
     updates = [(param, param - learning_rate * gparam) for param, gparam in zip(params, gparams)]
+
+    #prediction model
+    #prediction_model = None
+    #if test_image is not None:
+    #    shared_test_image = theano.shared(np.array(test_image,dtype = theano.config.floatX),
+    #                                      borrow = True)
+    #    prediction_model = function([],mlp_layer.pred,
+    #                                givens = { x : shared_test_image})
 
     train_model = function(
         [index],
@@ -168,6 +175,10 @@ def trainLeNet(learning_rate = 0.1,
                     )
                 )
 
+                #if test_image is not None:
+                #    test_result = prediction_model()
+                #    print ("one test result is : ",test_result)
+
                 # valid值有提升
                 if(valid_score < best_valid_score):
                 #检测是否达到patience更新条件
@@ -190,11 +201,9 @@ def trainLeNet(learning_rate = 0.1,
                         )
                     )
 
-                    if test_image is not None:
-                        test_result = []
-                        for image in test_image:
-                            test_result.append(mlp_layer.prediction_func(image))
-                        print ("one test result is : ",test_result)
+                    with open("leNet.pkl","wb") as f:
+                            pickle.dump(params,f)
+
 
             if patience <= iter:
                 loop_done = True
@@ -214,18 +223,8 @@ def trainLeNet(learning_rate = 0.1,
     )
     return mlp_layer
 
-
-def leNetPrediction(image_set):
-    classifier = trainLeNet()
-
-    predict_model = theano.function([classifier.input],classifier.pred)
-
-    for image in image_set:
-        print(predict_model(image))
-
-
-#if __name__ == "__main__":
-#    trainLeNet()
+if __name__ == "__main__":
+    trainLeNet()
 
 
 

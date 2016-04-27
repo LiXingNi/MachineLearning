@@ -42,7 +42,7 @@ class Regression(object):
 
 
 class HiddenLayer(object):
-    def __init__(self, rng, input, n_in, n_out, activation = T.nnet.relu):
+    def __init__(self, rng, input, n_in, n_out, activation = T.tanh):
         self.input = input
         W = np.asarray(
             rng.uniform(
@@ -88,9 +88,7 @@ class MLP(object):
         self.errors = self.regression_layer.errors
         self.pred = self.regression_layer.pred
 
-        self.params = self.hidden_layer.params + self.regression_layer.params
-
-        self.prediction_func = function([self.input],self.pred)
+        self.param = self.hidden_layer.params + self.regression_layer.params
 
 
 def trainMLP(learning_rate = 0.01, L1_reg = 0.0, L2_reg = 0.0001,
@@ -113,9 +111,9 @@ def trainMLP(learning_rate = 0.01, L1_reg = 0.0, L2_reg = 0.0001,
     error = classifier.errors(y)
 
     #定义误差值
-    gparams = [T.grad(cost, param) for param in classifier.params]
+    gparams = [T.grad(cost, param) for param in classifier.param]
     updates = [(param, param - learning_rate * gparam)
-               for param, gparam in zip(classifier.params, gparams)]
+               for param, gparam in zip(classifier.param, gparams)]
 
 
     #为训练模型，验证模型与测试模型定义可调函数

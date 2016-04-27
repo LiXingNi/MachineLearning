@@ -1,14 +1,14 @@
 # _*_ coding:utf-8 _*_
 from cv2 import *
 import numpy as np
-
-from convolutionNN import *
+from leNetDeserialize import *
 
 def splitImage(path):
     im = imread(path)
     r_im = 255 - im
     g_im = cvtColor(r_im,COLOR_BGR2GRAY)
     b_im = threshold(g_im,50,255,THRESH_BINARY)[1]
+    b_im = b_im.astype('float32') / 255.0
 
 #split org image along cols
     split_cols = []
@@ -51,12 +51,12 @@ def splitImage(path):
     return sp_ims
         
 
-def resizeImage(src):
+def resizeImage(src,show_image = False):
     sz = np.max(src.shape)
     row = src.shape[0]
     col = src.shape[1]
     
-    dst = np.zeros((sz,sz),np.uint8)
+    dst = np.zeros((sz,sz),np.float32)
 
     if sz == row:
         beg_col = (sz / 2) - (col / 2)
@@ -65,25 +65,31 @@ def resizeImage(src):
         beg_row = (sz / 2) - (row / 2)
         dst[beg_row : beg_row + row,:] = src
 
-    dst = resize(dst,(26,26), interpolation=INTER_AREA)
+    dst = resize(dst,(20,20), interpolation=INTER_AREA)
 
-    f_dst = np.zeros((28,28),np.uint8)
-    f_dst[1:27,1:27] = dst
+    f_dst = np.zeros((28,28),np.float32)
+    f_dst[4:24,4:24] = dst
 
-    namedWindow('d', WINDOW_NORMAL)
-    imshow('d',f_dst)
-    waitKey()
+    if show_image is True:
+        namedWindow('d', WINDOW_NORMAL)
+        imshow('d',f_dst)
+        waitKey()
     return f_dst
     
 
 if __name__ == "__main__":
-    sp_ims = splitImage("C:\\Users\\3dr\\Desktop\\1.jpg")
+    sp_ims = splitImage("1.jpg")
+
     test_ims = []
     for im in sp_ims:
-        test_ims.append(resizeImage(im))
+        t_im = resizeImage(im, True)
+        test_ims.append(t_im.reshape(1,28 * 28))
 
     print ("split image ops")
 
-    trainLeNet(test_image = test_ims)
+    classifier = leNet()
+    for im in test_ims:
+        print(classifier.prediction(im))
+    #trainLeNet(test_image = test_ims)
 
 
