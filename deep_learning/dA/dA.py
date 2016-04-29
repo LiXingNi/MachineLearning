@@ -2,6 +2,8 @@
 import sys
 sys.path.append("..")
 
+import os
+
 import theano
 from theano import tensor as T
 from theano.tensor.shared_randomstreams import  RandomStreams
@@ -119,14 +121,11 @@ def tile_raster_images(X, img_shape, tile_shape, tile_spacing=(0, 0),
                       ] \
                       = this_img * (255 if output_pixel_vals else 1)
       return out_array
-
-
-
 class dA(object):
     def __init__(self, np_rng,
                  theano_rng = None,
                  input = None,
-                 n_visible = 786,
+                 n_visible = 784,
                  n_hidden = 500,
                  W = None,
                  b_hid = None,
@@ -153,11 +152,11 @@ class dA(object):
                 ),
                 dtype = theano.config.floatX
             )
-            W = theano.shared(value = init_w, name = 'w', borrow = True)
+            W = theano.shared(value = init_w, name = 'W', borrow = True)
 
         if b_hid is None:
             b_hid = theano.shared(
-                value = np.zeros(shape = (n_hidden), dtype = theano.config.floatX),
+                value = np.zeros(shape = n_hidden, dtype = theano.config.floatX),
                 name = 'b_hid',
                 borrow = True
             )
@@ -211,7 +210,7 @@ def train_dA(learning_rate = 0.1,
              training_epoch = 15,
              dataset = '../mnist.pkl.gz',
              batch_size = 20,
-             output_folder = 'dA_plots'
+             output_folder = 'dA_plots.png'
              ):
 
     datasets = loadData(dataset)
@@ -251,27 +250,29 @@ def train_dA(learning_rate = 0.1,
         for mini_batchs in range(n_train_batches):
             c_cost.append(train_da(mini_batchs))
         print("train epoch %d, cost %f " % (epoch, np.mean(c_cost)))
+        image = Image.fromarray(tile_raster_images(
+            X=da.W.get_value(borrow=True).T,
+            img_shape=(28, 28), tile_shape=(10, 10),
+            tile_spacing=(1, 1)))
+        image.save('filters_corruption_30_epoch_%d.png' % epoch)
 
     end_time  = timeit.default_timer()
     train_time = end_time - beg_time
-    image = Image.fromarray(
-        tile_raster_images(da.W.get_value(borrow = True).T,
-                           img_shape = (28,28),
-                           tile_shape = (10,10),
-                           tile_spacing = (1,1))
-    )
-    image.save(output_folder)
     print("train time : %f",train_time)
 
 
 if __name__ == "__main__":
     print "new"
+    c_level = 0
+    train_dA()
+    '''
     i = 0
     while c_level <= 1:
         file_name = str(i) + '.jpg'
         i += 1
         train_dA(corruption_level = c_level,output_folder= file_name)
         c_level += 0.2
+        '''
 
 
 
