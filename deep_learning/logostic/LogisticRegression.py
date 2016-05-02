@@ -27,6 +27,7 @@ class LogisticRg:
       inputs = [x, y],
       outputs = [self._prediction, self.cross],
       updates = [(w,w - 0.1 * gw),(b,b - 0.1 * gb)])            # 训练函数根据变化量更新参数
+    self.params = [w,b]
     self._predict = function([x],self._prediction)              # 预测函数
 
   def predict(self,x_val):
