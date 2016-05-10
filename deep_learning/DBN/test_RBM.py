@@ -162,6 +162,7 @@ class RBM(object):
     def getReconstructionCost(self, updates, sigmoid_nv):
         cross_entropy = T.mean(T.sum(self.input * T.log(sigmoid_nv) + \
                                      (1 - self.input) * T.log(1 - sigmoid_nv), axis = 1))
+        return cross_entropy
 
     def  getPseudoLikeLiHoodCost(self, updates):
         bit_i_idx = theano.shared(value = 0, name = 'bit_i_idx')
@@ -245,12 +246,6 @@ def testRbm(n_chains = 20, n_samples = 10,model_path = "rbm.pkl",output_folder =
         os.mkdir(output_folder)
     os.chdir(output_folder)
 
-    persistent_vis_chain = theano.shared(
-        value = np.zeros(shape = (n_chains,28*28),dtype = theano.config.floatX),
-        borrow = True
-    )
-
-
     #反序列化
     params = pickle.load(open(model_path))
     x = T.matrix('x')
@@ -262,6 +257,11 @@ def testRbm(n_chains = 20, n_samples = 10,model_path = "rbm.pkl",output_folder =
     rbm.W.set_value(params[0].get_value(),borrow = True)
     rbm.vbias.set_value(params[1].get_value(),borrow = True)
     rbm.hbias.set_value(params[2].get_value(),borrow = True)
+
+    persistent_vis_chain = theano.shared(
+        value = np.zeros(shape = (n_chains,28*28),dtype = theano.config.floatX),
+        borrow = True
+    )
 
     plot_every = 1000
     ([
