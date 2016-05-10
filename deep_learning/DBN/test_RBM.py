@@ -3,7 +3,6 @@ import sys
 import os
 sys.path.append("..")
 from MLP.mutiLayerPerceptrons import loadData
-from dA.dA import scale_to_unit_interval
 from dA.dA import tile_raster_images
 
 import timeit
@@ -13,6 +12,7 @@ from theano import function
 from theano.tensor.shared_randomstreams import RandomStreams
 import numpy as np
 import PIL.Image as Image
+import pickle
 
 
 class RBM(object):
@@ -72,7 +72,7 @@ class RBM(object):
         self.W = W
         self.hbias = hbias
         self.vbias = vbias
-        self.params = [self.W, self.hbias, self.vbias ]
+        self.params = [self.W,  self.vbias, self.hbias]
 
     # 计算 free_energy
     def freeEnergy(self, v_sample):
@@ -173,9 +173,9 @@ class RBM(object):
         updates[bit_i_idx] = (bit_i_idx + 1) % self.n_visible
         return cost
 
-def testRbm(learning_rate = 0.1, train_epoch = 15,
+def trainRbm(learning_rate = 0.1, train_epoch = 15,
             dataset = '../mnist.pkl.gz', batch_size = 20,
-            n_chains = 20, n_samples = 10, output_folder = 'rbm_plots',
+            output_folder = 'rbm_plots',
             n_hidden = 500):
     datasets = loadData(dataset)
     train_set_x, train_set_y = datasets[0]
@@ -232,16 +232,36 @@ def testRbm(learning_rate = 0.1, train_epoch = 15,
         plotting_stop = timeit.default_timer()
         plotting_time += (plotting_stop - plotting_start)
 
+    with open("rbm.pkl",'wb') as f:
+        pickle.dump(rbm.params,f)
+
     end_time = timeit.default_timer()
     print("train took %f minutes"%((end_time - start_time - plotting_time) / 60.))
 
-   # 训练结束，用训练的结果生成一个新的数据集
-    number_of_test_samples = test_set_x.get_value(borrow = True).shape[0]
 
-    test_idx = rng.randint(number_of_test_samples - n_chains)
+def testRbm(n_chains = 20, n_samples = 10,model_path = "rbm.pkl",output_folder = 'rbm_plots'):
+    # 调整当前工作路径
+    if not os.path.isdir(output_folder):
+        os.mkdir(output_folder)
+    os.chdir(output_folder)
+
     persistent_vis_chain = theano.shared(
-        np.asarray(test_set_x.get_value(borrow = True)[test_idx:test_idx + n_chains])
+        value = np.zeros(shape = (n_chains,28*28),dtype = theano.config.floatX),
+        borrow = True
     )
+
+
+    #反序列化
+    params = pickle.load(open(model_path))
+    x = T.matrix('x')
+    init_input = x.reshape((n_chains,28*28))
+    rbm = RBM(input = init_input,
+              n_visible = 28*28,
+              n_hidden = 500,
+              )
+    rbm.W.set_value(params[0].get_value(),borrow = True)
+    rbm.vbias.set_value(params[1].get_value(),borrow = True)
+    rbm.hbias.set_value(params[2].get_value(),borrow = True)
 
     plot_every = 1000
     ([
@@ -281,6 +301,7 @@ def testRbm(learning_rate = 0.1, train_epoch = 15,
         image.save("samples.png")
 
 if __name__ == "__main__":
+    #trainRbm()
     testRbm()
 
 
