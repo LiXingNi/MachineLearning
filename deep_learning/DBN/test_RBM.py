@@ -77,8 +77,8 @@ class RBM(object):
     # 计算 free_energy
     def freeEnergy(self, v_sample):
         # v_sample 是 N * n_visible 的变量
+        wx_b = T.dot(v_sample, self.W) + self.hbias
         vbias_terms= T.dot(v_sample, self.vbias) # 得到一个 N*1 的矩阵
-        wx_b = T.dot(v_sample, self.W)
         hidden_terms = T.sum(T.log(1 + T.exp(wx_b)), axis = 1) #沿行相加，得到一个N*1 的矩阵
         return -hidden_terms - vbias_terms # 返回一个 N*1 的矩阵
 
@@ -108,9 +108,9 @@ class RBM(object):
 
     def gibbsHvH(self, h0_sample):
         v1_prev_sigmoid, v1_sigmoid, v1_sample = self.sampleVGivenH(h0_sample)
-        h1_prev_sigmoid, h1_sigmoid, h1_sample = self.sampleVGivenH(v1_sample)
+        h1_prev_sigmoid, h1_sigmoid, h1_sample = self.sampleHGivenV(v1_sample)
         return [v1_prev_sigmoid, v1_sigmoid, v1_sample,
-                h1_prev_sigmoid, v1_sigmoid, h1_sample]
+                h1_prev_sigmoid, h1_sigmoid, h1_sample]
 
     def gibbsVhV(self, v0_sample):
         h1_prev_sigmoid, h1_sigmoid, h1_sample = self.sampleHGivenV(v0_sample)
@@ -138,7 +138,7 @@ class RBM(object):
         ) = theano.scan(
             fn = self.gibbsHvH,
             outputs_info = [None, None, None, None, None, chain_start],
-            n_steps = k,
+            n_steps = k
         )
 
         chain_end = nv_samples[-1] #重构结果
@@ -148,7 +148,7 @@ class RBM(object):
         gparams = T.grad(cost, self.params, consider_constant = [chain_end])
 
         for gparam, param in zip(gparams, self.params):
-            updates[param] = param - gparam * T.cast(lr, theano.config.floatX)
+            updates[param] = param - gparam * T.cast(lr, dtype = theano.config.floatX)
 
         if persistent:
             updates[persistent] = nh_samples[-1]
@@ -156,7 +156,8 @@ class RBM(object):
         else:
             monitoring_cost = self.getReconstructionCost(updates, nv_sigmoids[-1])
 
-        return monitoring_cost
+        return monitoring_cost,updates
+
 
     def getReconstructionCost(self, updates, sigmoid_nv):
         cross_entropy = T.mean(T.sum(self.input * T.log(sigmoid_nv) + \
@@ -183,7 +184,7 @@ def testRbm(learning_rate = 0.1, train_epoch = 15,
 
     index = T.iscalar()
     x = T.matrix('x')
-    rng = np.random.RandomState(1234)
+    rng = np.random.RandomState(123)
     theano_rng = RandomStreams(rng.randint(2**30))
 
     persistent_chain = theano.shared(
@@ -191,9 +192,10 @@ def testRbm(learning_rate = 0.1, train_epoch = 15,
                                               dtype = theano.config.floatX),
                                     borrow = True
                                      )
-    rbm = RBM(input = x,n_hidden = n_hidden,numpy_rng = rng, theano_rng = theano_rng)
+    rbm = RBM(input = x,n_visible= 28*28, n_hidden = n_hidden,numpy_rng = rng, theano_rng = theano_rng)
 
-    cost, updates = rbm.getCostUpdates(persistent= persistent_chain, k = 15)
+    cost, updates = rbm.getCostUpdates(lr = learning_rate,
+                                       persistent = persistent_chain, k = 15)
 
     if not os.path.isdir(output_folder):
         os.mkdir(output_folder)
@@ -214,15 +216,15 @@ def testRbm(learning_rate = 0.1, train_epoch = 15,
         mean_cost = []
         for batch_index in range(n_train_batches):
             mean_cost += [train_rbm(batch_index)]
-        print ('training epoch %d, cost is %f'%epoch, np.mean(mean_cost))
+        print ('training epoch %d, cost is %f'%(epoch, np.mean(mean_cost)))
 
         plotting_start =timeit.default_timer()
         image = Image.fromarray(
             obj = tile_raster_images(
                 X = rbm.W.get_value(borrow = True).T,
-                image_shape = (28,28),
+                img_shape = (28,28),
                 tile_shape = (10,10),
-                tile_space = (1,1)
+                tile_spacing = (1,1)
             )
         )
 
@@ -264,15 +266,15 @@ def testRbm(learning_rate = 0.1, train_epoch = 15,
         updates = updates
     )
 
-    image_data = np.zeros((29 * n_samples + 1, 29 * n_chains + 1),
+    image_data = np.zeros((29 * n_samples + 1, 29 * n_chains - 1),
                           dtype = 'uint8')
     for idx in range(n_samples) :
         vis_mfs,vias_samples = sample_fn()
         image_data[29 * idx : 29 * idx + 28,:] = tile_raster_images(
             X = vis_mfs,
-            image_shape = (28,28),
+            img_shape = (28,28),
             tile_shape = (1,n_chains),
-            tile_spaceing = (1,1)
+            tile_spacing = (1,1)
         )
 
         image = Image.fromarray(image_data)
