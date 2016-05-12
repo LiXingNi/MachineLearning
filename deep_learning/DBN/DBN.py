@@ -59,9 +59,9 @@ class DBN(object):
         self.logistic_layer = Regression(input = self.sigmoid_layers[-1].output,
                                          n_in = hidden_layer_size[-1],
                                          n_out = n_outs)
-        self.params.extend(self.params)
+        self.params.extend(self.logistic_layer.params)
 
-        self.finetune_cost = self.logistic_layer.net_log_likelihood(self.y)
+        self.finetune_cost = self.logistic_layer.neg_log_likelihood(self.y)
         self.final_errors = self.logistic_layer.errors(self.y)
 
     def pretrainingFunction(self, data_set_x, batch_size, k):
@@ -81,7 +81,7 @@ class DBN(object):
                 cost,
                 updates = updates,
                 givens = {
-                    self.x : data_set_x[batch_begin,batch_end]
+                    self.x : data_set_x[batch_begin:batch_end]
                 }
             )
             pretrain_fns.append(fn)
@@ -110,11 +110,11 @@ class DBN(object):
 
         train_function = function(
             inputs = [index,],
-            outputs = self.final_errors,
+            outputs = self.finetune_cost,
             updates = updates,
             givens = {
-                self.x : train_set_x[batch_size * index, batch_size(index + 1)],
-                self.y : train_set_y[batch_size * index, batch_size * (index + 1)]
+                self.x : train_set_x[batch_size * index : batch_size * (index + 1)],
+                self.y : train_set_y[batch_size * index : batch_size * (index + 1)]
             }
         )
 
@@ -122,8 +122,8 @@ class DBN(object):
             inputs = [index],
             outputs = self.final_errors,
             givens = {
-                self.x : valid_set_x[batch_size * index, batch_size(index + 1)],
-                self.y : valid_set_y[batch_size * index, batch_size * (index + 1)]
+                self.x : valid_set_x[batch_size * index: batch_size * (index + 1)],
+                self.y : valid_set_y[batch_size * index: batch_size * (index + 1)]
             }
         )
 
@@ -131,8 +131,8 @@ class DBN(object):
             inputs = [index],
             outputs = self.final_errors,
             givens = {
-                self.x : test_set_x[batch_size * index, batch_size(index + 1)],
-                self.y : test_set_y[batch_size * index, batch_size * (index + 1)]
+                self.x : test_set_x[batch_size * index: batch_size * (index + 1)],
+                self.y : test_set_y[batch_size * index: batch_size * (index + 1)]
             }
         )
 
@@ -164,12 +164,12 @@ def testDBN(finetune_lr = 0.1,
         valid_set_x, valid_set_y = dataset[1]
         test_set_x, test_set_y = dataset[2]
 
-        n_train_bathes = train_set_x.get_value(borrow = True).shape[0] // batch_size
-        n_valid_bathes = valid_set_x.get_value(borrow = True).shape[0] // batch_size
-        n_test_bathes = test_set_x.get_value(borrow = True).shape[0] // batch_size
+        n_train_batches = train_set_x.get_value(borrow = True).shape[0] // batch_size
+        n_valid_batches = valid_set_x.get_value(borrow = True).shape[0] // batch_size
+        n_test_batches = test_set_x.get_value(borrow = True).shape[0] // batch_size
 
 
-        np_rng = np.random.set_state(123)
+        np_rng = np.random.RandomState(123)
         dbn = DBN(
             np_rng = np_rng,
             n_ins= 28 *28,
@@ -177,15 +177,15 @@ def testDBN(finetune_lr = 0.1,
         )
 
         pretrain_functions = dbn.pretrainingFunction(train_set_x, batch_size, k)
-        train_functions, valid_score, test_score = dbn.buildFineTuneFunction(dataset, batch_size, finetune_lr)
+        train_function, valid_score, test_score = dbn.buildFineTuneFunction(dataset, batch_size, finetune_lr)
 
         # 预训练
         start_time = timeit.default_timer()
         for layer in range(dbn.n_hidden_layers):  #逐层预训练
             for epoch in range(pretraining_epoch):
                 cost = [pretrain_functions[layer](index = i, lr = pretraining_lr) \
-                        for i in range(n_train_bathes)]
-                print "pre train %d for %d epoch,cost is %f" % layer,epoch, np.mean(cost)
+                        for i in range(n_train_batches)]
+                print "pre train %d for %d epoch,cost is %f" % (layer,epoch, np.mean(cost))
 
         end_time = timeit.default_timer()
 
@@ -196,7 +196,59 @@ def testDBN(finetune_lr = 0.1,
 
         print "-------------------- pretrain terminate ---------------------------"
 
-        #使用早停微调
+        #使用早停微n_batches 调
+
+        start_time = timeit.default_timer()
+        patience = 4 * n_train_batches
+        patience_increase = 2.
+        improve_threshold = 0.995
+        validation_frequency = min(n_train_batches, patience / 2)
+
+
+        best_cost = np.inf
+        test_cost= 0.
+        epoch = 0
+        done_looping = False
+
+        while(epoch < training_epoch and not done_looping):
+            for mini_batch in range(n_train_batches):
+                curr_cost = train_function(mini_batch)
+                iter = mini_batch + epoch * n_train_batches
+
+                if((iter + 1) % validation_frequency == 0):
+                    print "come in validation test-------"
+                    valid_cost_lis = valid_score()
+                    valid_cost = np.mean(valid_cost_lis)
+                    if(valid_cost < best_cost):
+                        print "curr cost down to %f at epoch %d/%d" % (curr_cost, epoch, mini_batch)
+                        if(curr_cost <= best_cost * improve_threshold):
+                            print "----------add patience"
+                            patience = max(patience, iter * patience_increase)
+                        best_cost = valid_cost
+
+                        test_cost_lis = test_score()
+                        test_cost = np.mean(test_cost_lis)
+                        print "curr test socre is %f" % test_cost
+                        with open("finetuen.pkl","wb") as f:
+                            pickle.dump(dbn.params,f)
+
+
+                if iter > patience:
+                    done_looping = True
+                    break
+        end_time = timeit.default_timer()
+
+        print "fine tune cost time %f minutes" % ((end_time - start_time)/60.)
+
+
+
+
+if __name__== "__main__":
+    testDBN()
+
+
+
+
 
 
 
