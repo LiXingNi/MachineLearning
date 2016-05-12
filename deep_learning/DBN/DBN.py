@@ -6,6 +6,7 @@ from theano import function
 from MLP.mutiLayerPerceptrons import loadData
 from MLP.mutiLayerPerceptrons import HiddenLayer
 from MLP.mutiLayerPerceptrons import Regression
+from theano.sandbox.rng_mrg import  MRG_RandomStreams
 from theano.tensor.shared_randomstreams import RandomStreams
 import numpy as np
 import timeit
@@ -21,7 +22,8 @@ class DBN(object):
                  n_outs = 10
                  ):
         if theano_rng is None:
-            theano_rng = RandomStreams(np_rng.randint(2**30))
+            #theano_rng = RandomStreams(np_rng.randint(2**30))
+            theano_rng = MRG_RandomStreams(np_rng.randint(2**30))
 
         self.n_hidden_layers = len(hidden_layer_size)
         self.sigmoid_layers = []
@@ -52,8 +54,8 @@ class DBN(object):
                             theano_rng = theano_rng,
                             n_visible = i_in_size,
                             n_hidden = hidden_layer_size[i],
-                            W = sigmoid_layer.W,
-                            hbias = sigmoid_layer.b)
+                            W = self.sigmoid_layers[-1].W,
+                            hbias = self.sigmoid_layers[-1].b)
             self.rbm_layers.append(rbm_layer)
 
         self.logistic_layer = Regression(input = self.sigmoid_layers[-1].output,
@@ -69,13 +71,21 @@ class DBN(object):
         index = T.lscalar('index')
         learning_rate = T.scalar("lr")
 
+
         batch_begin = batch_size * index
         batch_end  = batch_begin + batch_size
 
         pretrain_fns = []
 
         for rbm in self.rbm_layers:
-            cost, updates = rbm.getCostUpdates(learning_rate, k = k)
+            persistent_chain = theano.shared(
+                value = np.zeros(shape = (batch_size, rbm.n_hidden),
+                                 dtype = theano.config.floatX),
+                borrow = True
+            )
+            cost, updates = rbm.getCostUpdates(lr = learning_rate,
+                                               persistent = persistent_chain,
+                                               k = k)
             fn = function(
                 [index,theano.In(learning_rate,value = 0.1)],
                 cost,
@@ -152,7 +162,7 @@ class DBN(object):
 
 
 def testDBN(finetune_lr = 0.1,
-            pretraining_epoch = 100,
+            pretraining_epoch = 100, #just for test
             pretraining_lr = 0.01,
             k = 1,
             training_epoch = 1000,
@@ -165,14 +175,13 @@ def testDBN(finetune_lr = 0.1,
         test_set_x, test_set_y = dataset[2]
 
         n_train_batches = train_set_x.get_value(borrow = True).shape[0] // batch_size
-        n_valid_batches = valid_set_x.get_value(borrow = True).shape[0] // batch_size
-        n_test_batches = test_set_x.get_value(borrow = True).shape[0] // batch_size
 
 
         np_rng = np.random.RandomState(123)
         dbn = DBN(
             np_rng = np_rng,
             n_ins= 28 *28,
+            hidden_layer_size=[1000,1000,1000],
             n_outs = 10
         )
 
@@ -183,8 +192,14 @@ def testDBN(finetune_lr = 0.1,
         start_time = timeit.default_timer()
         for layer in range(dbn.n_hidden_layers):  #逐层预训练
             for epoch in range(pretraining_epoch):
-                cost = [pretrain_functions[layer](index = i, lr = pretraining_lr) \
-                        for i in range(n_train_batches)]
+                #cost = [pretrain_functions[layer](index = i, lr = pretraining_lr) \
+                #        for i in range(n_train_batches)]
+                cost = []
+                for mini_batch in range(n_train_batches):
+                    cost.append(pretrain_functions[layer](
+                        index = mini_batch,
+                        lr = pretraining_lr
+                    ))
                 print "pre train %d for %d epoch,cost is %f" % (layer,epoch, np.mean(cost))
 
         end_time = timeit.default_timer()
@@ -211,24 +226,25 @@ def testDBN(finetune_lr = 0.1,
         done_looping = False
 
         while(epoch < training_epoch and not done_looping):
+            epoch += 1
             for mini_batch in range(n_train_batches):
-                curr_cost = train_function(mini_batch)
-                iter = mini_batch + epoch * n_train_batches
+                train_function(mini_batch)
+                iter = mini_batch + (epoch - 1) * n_train_batches
 
                 if((iter + 1) % validation_frequency == 0):
                     print "come in validation test-------"
                     valid_cost_lis = valid_score()
                     valid_cost = np.mean(valid_cost_lis)
+                    print "curr cost down to %f at epoch %d/%d" % ((1 - valid_cost) * 100., epoch, iter)
                     if(valid_cost < best_cost):
-                        print "curr cost down to %f at epoch %d/%d" % (curr_cost, epoch, mini_batch)
-                        if(curr_cost <= best_cost * improve_threshold):
+                        if(valid_cost <= best_cost * improve_threshold):
                             print "----------add patience"
                             patience = max(patience, iter * patience_increase)
                         best_cost = valid_cost
 
                         test_cost_lis = test_score()
                         test_cost = np.mean(test_cost_lis)
-                        print "curr test socre is %f" % test_cost
+                        print "curr test socre is %f" % ((1 - test_cost) * 100.)
                         with open("finetuen.pkl","wb") as f:
                             pickle.dump(dbn.params,f)
 
@@ -238,6 +254,7 @@ def testDBN(finetune_lr = 0.1,
                     break
         end_time = timeit.default_timer()
 
+        print "curr test socre is %f" % ((1 - test_cost) * 100.)
         print "fine tune cost time %f minutes" % ((end_time - start_time)/60.)
 
 
